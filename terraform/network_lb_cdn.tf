@@ -33,12 +33,13 @@ resource "google_compute_backend_service" "python_fixed_time_api_backend_service
   }
 
   cdn_policy {
-    cache_mode        = "FORCE_CACHE_ALL"
-    default_ttl       = var.python_api_cache_ttl_seconds
-    client_ttl        = var.python_api_cache_ttl_seconds
-    max_ttl           = var.python_api_cache_ttl_seconds
-    negative_caching  = false
-    serve_while_stale = 0
+    cache_mode                   = "FORCE_CACHE_ALL"
+    default_ttl                  = var.python_api_cache_ttl_seconds
+    client_ttl                   = var.python_api_cache_ttl_seconds
+    max_ttl                      = var.python_api_cache_ttl_seconds
+    negative_caching             = false
+    serve_while_stale            = 0
+    signed_url_cache_max_age_sec = 0
   }
 }
 
@@ -54,12 +55,13 @@ resource "google_compute_backend_service" "go_fixed_time_api_backend_service" {
   }
 
   cdn_policy {
-    cache_mode        = "FORCE_CACHE_ALL"
-    default_ttl       = var.go_api_cache_ttl_seconds
-    client_ttl        = var.go_api_cache_ttl_seconds
-    max_ttl           = var.go_api_cache_ttl_seconds
-    negative_caching  = false
-    serve_while_stale = 0
+    cache_mode                   = "FORCE_CACHE_ALL"
+    default_ttl                  = var.go_api_cache_ttl_seconds
+    client_ttl                   = var.go_api_cache_ttl_seconds
+    max_ttl                      = var.go_api_cache_ttl_seconds
+    negative_caching             = false
+    serve_while_stale            = 0
+    signed_url_cache_max_age_sec = 0
   }
 }
 

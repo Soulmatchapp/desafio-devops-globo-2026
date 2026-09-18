@@ -54,13 +54,12 @@ Cassio Henrique Silva
 
 ---
 
-## Arquitetura em GCP (Terraform, pronta pra aplicar)
+## Arquitetura em GCP — aplicada e pública hoje
 
-- **Cloud Run** hospeda as duas aplicações (linguagem não importa pro Cloud Run)
-- **Global Load Balancer + Cloud CDN** na frente, com um **backend service por app**
-- Cada backend tem sua própria política de cache: `python_api_cache_ttl_seconds = 10`, `go_api_cache_ttl_seconds = 60`
-- **Artifact Registry** guarda as imagens versionadas por commit
-- Todo o Terraform já passa em `terraform validate` — só falta um projeto GCP com billing pra aplicar
+- **Cloud Run** hospeda as duas aplicações + o próprio `cache-reverse-proxy`, como um terceiro serviço
+- Sem domínio próprio ainda, então o Nginx no Cloud Run é o entrypoint público (em vez do Load Balancer + Cloud CDN)
+- Projeto GCP dedicado: `desafio-devops-globo-2026`, com Artifact Registry guardando as 3 imagens
+- O desenho "produção" com **Global Load Balancer + Cloud CDN** (backend service por app, TTL nativo) já está em `terraform/network_lb_cdn.tf`, validado, pronto pra aplicar assim que houver um domínio
 
 ---
 
@@ -85,12 +84,22 @@ Cassio Henrique Silva
 
 ---
 
+## Acesso público (ao vivo, no GCP)
+
+- Entrypoint público com cache: **cache-reverse-proxy-202002732722.southamerica-east1.run.app**
+- `/python-api/fixed` e `/python-api/time` — app Python, cache 10s
+- `/go-api/fixed` e `/go-api/time` — app Go, cache 60s
+- Provisionado via Terraform, projeto GCP dedicado `desafio-devops-globo-2026`
+- Sem Load Balancer/domínio próprio hoje — o proxy de cache roda ele mesmo como um terceiro serviço no Cloud Run, preservando o TTL
+
+---
+
 ## Entrega
 
 - Repositório público: **github.com/Soulmatchapp/desafio-devops-globo-2026**
 - Código-fonte das duas aplicações + infraestrutura completa
 - Configuração de cache documentada e testada
-- Infraestrutura automatizada (`docker compose up` local, Terraform pronto pra GCP)
+- Infraestrutura automatizada (`docker compose up` local, Terraform aplicado no GCP)
 - Diagramas de arquitetura e fluxo de atualização, com pontos de melhoria
 - Histórico de commits organizado, `.gitignore` cuidando de segredos e artefatos de build
 
@@ -99,3 +108,4 @@ Cassio Henrique Silva
 ## Obrigado
 
 Repositório: github.com/Soulmatchapp/desafio-devops-globo-2026
+Demo pública: cache-reverse-proxy-202002732722.southamerica-east1.run.app

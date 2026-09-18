@@ -2,6 +2,25 @@
 
 Duas aplicações em linguagens diferentes, cada uma com uma rota de texto fixo e uma rota de horário do servidor, atrás de uma camada de cache com expiração diferente por aplicação, infra fácil de subir e observabilidade básica.
 
+## Acesso público (GCP Cloud Run)
+
+As três peças estão publicadas e acessíveis agora, no projeto GCP `desafio-devops-globo-2026`:
+
+| Endpoint | URL |
+|---|---|
+| **Entrypoint público com cache** (use este) | https://cache-reverse-proxy-202002732722.southamerica-east1.run.app |
+| → App Python via cache (10s) | `/python-api/fixed` e `/python-api/time` |
+| → App Go via cache (60s) | `/go-api/fixed` e `/go-api/time` |
+| App Python direto (sem cache, debug) | https://python-fixed-time-api-j466jqnteq-rj.a.run.app |
+| App Go direto (sem cache, debug) | https://go-fixed-time-api-j466jqnteq-rj.a.run.app |
+
+```bash
+curl -i https://cache-reverse-proxy-202002732722.southamerica-east1.run.app/python-api/time
+# repita em menos de 10s: header x-cache-status vai de MISS pra HIT
+```
+
+Isso foi provisionado com o mesmo Terraform de `terraform/` (Artifact Registry + Cloud Run), só que sem o Load Balancer/Cloud CDN completo (esse exige domínio próprio) — o `cache-reverse-proxy` (Nginx) roda como um terceiro serviço no Cloud Run e cumpre o mesmo papel: cache de 10s/60s na frente das duas apps, só que num único entrypoint público. Ver `nginx/nginx-cloud.conf` e `diagrams/architecture.md`.
+
 ## Componentes
 
 | Componente | O que é |
@@ -56,7 +75,7 @@ O header `X-Cache-Status` (`MISS`/`HIT`/`EXPIRED`) exposto pelo `cache-reverse-p
 
 ## Rodando em GCP (Terraform)
 
-O diretório [`terraform/`](terraform) provisiona a arquitetura completa: Artifact Registry, os dois serviços no Cloud Run (`python_fixed_time_api`, `go_fixed_time_api`), e um Load Balancer global com Cloud CDN configurado com TTL diferente por app. **Não foi aplicado** — fica pronto pra rodar quando houver um projeto GCP com billing:
+O diretório [`terraform/`](terraform) provisiona: Artifact Registry, os três serviços no Cloud Run (`python_fixed_time_api`, `go_fixed_time_api`, `cache_reverse_proxy`) — **já aplicados**, ver seção "Acesso público" acima — e um Load Balancer global com Cloud CDN configurado com TTL diferente por app (`network_lb_cdn.tf`) — **não aplicado**, pois exige um domínio real para o certificado gerenciado (hoje aponta pro domínio fictício `desafio-devops.example.com`).
 
 ```bash
 cd terraform
@@ -64,10 +83,11 @@ terraform init
 terraform apply \
   -var "project_id=SEU_PROJECT_ID" \
   -var "python_api_container_image=southamerica-east1-docker.pkg.dev/SEU_PROJECT_ID/desafio-devops/python-fixed-time-api:latest" \
-  -var "go_api_container_image=southamerica-east1-docker.pkg.dev/SEU_PROJECT_ID/desafio-devops/go-fixed-time-api:latest"
+  -var "go_api_container_image=southamerica-east1-docker.pkg.dev/SEU_PROJECT_ID/desafio-devops/go-fixed-time-api:latest" \
+  -var "cache_reverse_proxy_container_image=southamerica-east1-docker.pkg.dev/SEU_PROJECT_ID/desafio-devops/cache-reverse-proxy:latest"
 ```
 
-(As imagens precisam existir no Artifact Registry antes do apply — buildar e dar `docker push` localmente, ou deixar o pipeline do GitHub Actions cuidar disso a cada push.)
+(As imagens precisam existir no Artifact Registry antes do apply — buildar e dar `docker push` localmente, ou deixar o pipeline do GitHub Actions cuidar disso a cada push. O `cache-reverse-proxy` usa uma imagem diferente da local: `nginx/Dockerfile.cloud` + `nginx/nginx-cloud.conf`, que aponta pros URLs públicos do Cloud Run em vez dos nomes de serviço do docker-compose.)
 
 ## Diagramas e análise
 

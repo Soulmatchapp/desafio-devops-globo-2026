@@ -19,6 +19,11 @@ variable "go_api_container_image" {
   type        = string
 }
 
+variable "cache_reverse_proxy_container_image" {
+  description = "Full Artifact Registry image reference for cache-reverse-proxy (Nginx variant that proxies to the public Cloud Run URLs of the two apps)."
+  type        = string
+}
+
 variable "python_api_cache_ttl_seconds" {
   description = "Cloud CDN cache TTL for python-fixed-time-api (challenge requires 10 seconds)."
   type        = number
