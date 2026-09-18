@@ -4,15 +4,15 @@ Duas aplicações em linguagens diferentes, cada uma com uma rota de texto fixo 
 
 ## Acesso público (GCP Cloud Run)
 
-As três peças estão publicadas e acessíveis agora, no projeto GCP `desafio-devops-globo-2026`:
+As três peças estão publicadas e acessíveis agora, no projeto GCP `desafio-devops-globo-2026`. Cada uma abre no navegador como uma pequena página web (símbolo, nome do autor e um botão que chama a própria API e mostra o resultado) — não é só JSON cru:
 
-| Endpoint | URL |
-|---|---|
-| **Entrypoint público com cache** (use este) | https://cache-reverse-proxy-202002732722.southamerica-east1.run.app |
-| → App Python via cache (10s) | `/python-api/fixed` e `/python-api/time` |
-| → App Go via cache (60s) | `/go-api/fixed` e `/go-api/time` |
-| App Python direto (sem cache, debug) | https://python-fixed-time-api-j466jqnteq-rj.a.run.app |
-| App Go direto (sem cache, debug) | https://go-fixed-time-api-j466jqnteq-rj.a.run.app |
+| Endpoint | URL | O que você vê |
+|---|---|---|
+| **Entrypoint público com cache** (use este pra apresentar) | https://cache-reverse-proxy-202002732722.southamerica-east1.run.app | Página com botão que testa as duas apps de uma vez e mostra o `X-Cache-Status` |
+| App Python direto | https://python-fixed-time-api-202002732722.southamerica-east1.run.app | Página própria da app Python, com botão |
+| App Go direto | https://go-fixed-time-api-202002732722.southamerica-east1.run.app | Página própria da app Go, com botão |
+
+Rotas de API (JSON) continuam disponíveis em todas: `/fixed`, `/time`, `/metrics`, `/healthz` (direto em cada app) ou `/python-api/*` e `/go-api/*` (através do proxy com cache).
 
 ```bash
 curl -i https://cache-reverse-proxy-202002732722.southamerica-east1.run.app/python-api/time
@@ -21,12 +21,14 @@ curl -i https://cache-reverse-proxy-202002732722.southamerica-east1.run.app/pyth
 
 Isso foi provisionado com o mesmo Terraform de `terraform/` (Artifact Registry + Cloud Run), só que sem o Load Balancer/Cloud CDN completo (esse exige domínio próprio) — o `cache-reverse-proxy` (Nginx) roda como um terceiro serviço no Cloud Run e cumpre o mesmo papel: cache de 10s/60s na frente das duas apps, só que num único entrypoint público. Ver `nginx/nginx-cloud.conf` e `diagrams/architecture.md`.
 
+> O símbolo usado é um globo genérico (🌐), não a marca registrada da Globo — evitei reproduzir a logo oficial numa página pública.
+
 ## Componentes
 
 | Componente | O que é |
 |---|---|
-| [`apps/python-fixed-time-api`](apps/python-fixed-time-api) | API em **Python (FastAPI)**. Rotas `/fixed`, `/time`, `/metrics`, `/healthz`. Cache de **10s**. |
-| [`apps/go-fixed-time-api`](apps/go-fixed-time-api) | API em **Go** (stdlib, sem dependências externas). Rotas `/fixed`, `/time`, `/metrics`, `/healthz`. Cache de **60s**. |
+| [`apps/python-fixed-time-api`](apps/python-fixed-time-api) | API em **Python (FastAPI)**. Rotas `/fixed`, `/time`, `/metrics`, `/healthz` + página web em `/`. Cache de **10s**. |
+| [`apps/go-fixed-time-api`](apps/go-fixed-time-api) | API em **Go** (stdlib, sem dependências externas). Rotas `/fixed`, `/time`, `/metrics`, `/healthz` + página web em `/`. Cache de **60s**. |
 | [`nginx/`](nginx) | `cache-reverse-proxy` — reverse proxy local com `proxy_cache`. Zona `python_api_cache_10s` (10s) e `go_api_cache_60s` (60s). |
 | [`observability/`](observability) | `metrics-collector` (Prometheus, faz scrape das apps) + `metrics-dashboard` (Grafana, dashboard pré-provisionado). |
 | [`terraform/`](terraform) | IaC de referência para rodar a mesma arquitetura no **Google Cloud** (Cloud Run + Load Balancer/Cloud CDN). Não aplicada — ver seção GCP abaixo. |
@@ -45,8 +47,11 @@ Isso sobe, com um comando só: `python-fixed-time-api`, `go-fixed-time-api`, `ca
 
 | Serviço | URL |
 |---|---|
+| **Página do proxy com cache** (abra no navegador) | http://localhost:8080/ |
 | App Python via cache (10s) | http://localhost:8080/python-api/fixed e http://localhost:8080/python-api/time |
 | App Go via cache (60s) | http://localhost:8080/go-api/fixed e http://localhost:8080/go-api/time |
+| Página própria da app Python (sem cache) | http://localhost:8000/ |
+| Página própria da app Go (sem cache) | http://localhost:8081/ |
 | Prometheus (`metrics-collector`) | http://localhost:9090 |
 | Grafana (`metrics-dashboard`, login admin/admin, ou anônimo como viewer) | http://localhost:3000 |
 
@@ -99,9 +104,14 @@ terraform apply \
 ```
 .
 ├── apps/
-│   ├── python-fixed-time-api/  # FastAPI: /fixed /time /metrics /healthz, cache 10s
-│   └── go-fixed-time-api/      # Go stdlib: /fixed /time /metrics /healthz, cache 60s
-├── nginx/                      # cache-reverse-proxy: cache local (python_api_cache_10s / go_api_cache_60s)
+│   ├── python-fixed-time-api/  # FastAPI: /fixed /time /metrics /healthz + página web em /, cache 10s
+│   │   └── static/index.html   # página própria da app (símbolo + nome + botão)
+│   └── go-fixed-time-api/      # Go stdlib: /fixed /time /metrics /healthz + página web em /, cache 60s
+│       └── static/index.html   # página própria da app (embutida no binário via go:embed)
+├── nginx/                      # cache-reverse-proxy: cache (python_api_cache_10s / go_api_cache_60s)
+│   ├── nginx.conf / Dockerfile         # variante local (docker-compose)
+│   ├── nginx-cloud.conf / Dockerfile.cloud  # variante Cloud Run (aponta pros URLs públicos)
+│   └── site/index.html         # página do proxy: testa as duas apps com um botão
 ├── observability/               # metrics-collector (Prometheus) + metrics-dashboard (Grafana)
 ├── terraform/                   # IaC de referência para GCP (Cloud Run + LB/CDN)
 ├── diagrams/                    # arquitetura + fluxo de atualização + melhorias

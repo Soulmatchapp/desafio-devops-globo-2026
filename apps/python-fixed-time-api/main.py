@@ -1,9 +1,13 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import FastAPI, Response
+from fastapi.responses import HTMLResponse
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 app = FastAPI(title="python-fixed-time-api")
+
+HOME_PAGE_HTML = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf-8")
 
 REQUEST_COUNT = Counter(
     "app_requests_total", "Total requests received", ["route"]
@@ -11,6 +15,11 @@ REQUEST_COUNT = Counter(
 REQUEST_LATENCY = Histogram(
     "app_request_latency_seconds", "Request latency in seconds", ["route"]
 )
+
+
+@app.get("/", response_class=HTMLResponse)
+def handle_home_page():
+    return HOME_PAGE_HTML
 
 
 @app.get("/fixed")

@@ -87,8 +87,10 @@ Cassio Henrique Silva
 ## Acesso público (ao vivo, no GCP)
 
 - Entrypoint público com cache: **cache-reverse-proxy-202002732722.southamerica-east1.run.app**
-- `/python-api/fixed` e `/python-api/time` — app Python, cache 10s
-- `/go-api/fixed` e `/go-api/time` — app Go, cache 60s
+- Cada serviço abre como uma página web de verdade (símbolo, meu nome, botão que chama a API e mostra o resultado) — não é só JSON cru
+- App Python direto: **python-fixed-time-api-202002732722.southamerica-east1.run.app**
+- App Go direto: **go-fixed-time-api-202002732722.southamerica-east1.run.app**
+- Rotas de API continuam em `/python-api/*` e `/go-api/*` (via proxy, com cache) ou `/fixed` e `/time` (direto em cada app)
 - Provisionado via Terraform, projeto GCP dedicado `desafio-devops-globo-2026`
 - Sem Load Balancer/domínio próprio hoje — o proxy de cache roda ele mesmo como um terceiro serviço no Cloud Run, preservando o TTL
 

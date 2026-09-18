@@ -1,12 +1,16 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"log"
 	"net/http"
 	"sync/atomic"
 	"time"
 )
+
+//go:embed static/index.html
+var homePageHTML []byte
 
 // requestMetrics holds the running counters exposed on /metrics for a single route.
 type requestMetrics struct {
@@ -28,6 +32,11 @@ func wrapHandlerWithMetrics(metrics *requestMetrics, handler http.HandlerFunc) h
 		atomic.AddInt64(&metrics.totalRequestCount, 1)
 		atomic.AddInt64(&metrics.totalLatencyMicroseconds, time.Since(requestStartTime).Microseconds())
 	}
+}
+
+func handleHomePageRoute(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(homePageHTML)
 }
 
 func handleFixedTextRoute(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +75,7 @@ func handlePrometheusMetricsRoute(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	router := http.NewServeMux()
+	router.HandleFunc("/", handleHomePageRoute)
 	router.HandleFunc("/fixed", wrapHandlerWithMetrics(&fixedRouteMetrics, handleFixedTextRoute))
 	router.HandleFunc("/time", wrapHandlerWithMetrics(&timeRouteMetrics, handleServerTimeRoute))
 	router.HandleFunc("/healthz", handleHealthCheckRoute)
