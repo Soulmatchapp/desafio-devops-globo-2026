@@ -11,7 +11,7 @@ on:
 
 env:
   REGION: southamerica-east1
-  REPO: desafio-devops
+  ARTIFACT_REGISTRY_REPOSITORY: desafio-devops
 
 permissions:
   contents: read
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [py-service, go-service]
+        service: [python-fixed-time-api, go-fixed-time-api]
     steps:
       - uses: actions/checkout@v4
 
@@ -39,7 +39,7 @@ jobs:
 
       - name: Build and push image
         run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ matrix.service }}:${{ github.sha }}"
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPOSITORY }}/${{ matrix.service }}:${{ github.sha }}"
           docker build -t "$IMAGE" ./apps/${{ matrix.service }}
           docker push "$IMAGE"
 
@@ -63,5 +63,5 @@ jobs:
           terraform init
           terraform apply -auto-approve \
             -var "project_id=${{ secrets.GCP_PROJECT_ID }}" \
-            -var "py_image=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/py-service:${{ github.sha }}" \
-            -var "go_image=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/go-service:${{ github.sha }}"
+            -var "python_api_container_image=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPOSITORY }}/python-fixed-time-api:${{ github.sha }}" \
+            -var "go_api_container_image=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPOSITORY }}/go-fixed-time-api:${{ github.sha }}"

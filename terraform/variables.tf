@@ -9,24 +9,24 @@ variable "region" {
   default     = "southamerica-east1"
 }
 
-variable "py_image" {
-  description = "Full Artifact Registry image reference for py-service (e.g. REGION-docker.pkg.dev/PROJECT/desafio-devops/py-service:latest)."
+variable "python_api_container_image" {
+  description = "Full Artifact Registry image reference for python-fixed-time-api (e.g. REGION-docker.pkg.dev/PROJECT/desafio-devops/python-fixed-time-api:latest)."
   type        = string
 }
 
-variable "go_image" {
-  description = "Full Artifact Registry image reference for go-service."
+variable "go_api_container_image" {
+  description = "Full Artifact Registry image reference for go-fixed-time-api."
   type        = string
 }
 
-variable "py_cache_ttl_seconds" {
-  description = "Cloud CDN cache TTL for the Python service (challenge requires 10s)."
+variable "python_api_cache_ttl_seconds" {
+  description = "Cloud CDN cache TTL for python-fixed-time-api (challenge requires 10 seconds)."
   type        = number
   default     = 10
 }
 
-variable "go_cache_ttl_seconds" {
-  description = "Cloud CDN cache TTL for the Go service (challenge requires 1 minute)."
+variable "go_api_cache_ttl_seconds" {
+  description = "Cloud CDN cache TTL for go-fixed-time-api (challenge requires 1 minute)."
   type        = number
   default     = 60
 }

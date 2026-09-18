@@ -3,14 +3,14 @@ global:
   evaluation_interval: 5s
 
 scrape_configs:
-  - job_name: "py-service"
+  - job_name: "python-fixed-time-api"
     static_configs:
-      - targets: ["py-service:8000"]
+      - targets: ["python-fixed-time-api:8000"]
 
-  - job_name: "go-service"
+  - job_name: "go-fixed-time-api"
     static_configs:
-      - targets: ["go-service:8080"]
+      - targets: ["go-fixed-time-api:8080"]
 
-  - job_name: "prometheus"
+  - job_name: "metrics-collector"
     static_configs:
       - targets: ["localhost:9090"]

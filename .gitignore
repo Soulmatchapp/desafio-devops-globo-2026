@@ -16,7 +16,7 @@ __pycache__/
 venv/
 
 ### Go
-apps/go-service/go-service
+apps/go-fixed-time-api/go-fixed-time-api
 *.exe
 *.test
 
