@@ -4,13 +4,73 @@ import (
 	_ "embed"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
 //go:embed static/index.html
 var homePageHTML []byte
+
+// Anti-bot / anti-flood baseline for when this app is hit directly (bypassing
+// cache-reverse-proxy's own rate limit): caps each client IP at 5 requests
+// per second. Per-instance only (Cloud Run can run several instances), so it
+// is a defense-in-depth backstop, not a substitute for Cloud Armor at a real
+// load balancer -- see diagrams/architecture.md "Pontos de melhoria".
+const (
+	rateLimitWindow               = time.Second
+	rateLimitMaxRequestsPerWindow = 5
+)
+
+var (
+	requestTimestampsByClientIP = map[string][]time.Time{}
+	rateLimitStateMutex         sync.Mutex
+)
+
+func clientIPFromRequest(r *http.Request) string {
+	if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
+		return strings.TrimSpace(strings.Split(forwardedFor, ",")[0])
+	}
+	// r.RemoteAddr is "ip:port" -- strip the port, which is different on
+	// every connection and would otherwise make each request look like a
+	// different client, defeating the rate limit.
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+func enforcePerIPRateLimit(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		clientIP := clientIPFromRequest(r)
+		now := time.Now()
+		cutoff := now.Add(-rateLimitWindow)
+
+		rateLimitStateMutex.Lock()
+		recentTimestamps := requestTimestampsByClientIP[clientIP][:0]
+		for _, t := range requestTimestampsByClientIP[clientIP] {
+			if t.After(cutoff) {
+				recentTimestamps = append(recentTimestamps, t)
+			}
+		}
+		if len(recentTimestamps) >= rateLimitMaxRequestsPerWindow {
+			requestTimestampsByClientIP[clientIP] = recentTimestamps
+			rateLimitStateMutex.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			fmt.Fprint(w, `{"detail":"Too many requests, devagar ai"}`)
+			return
+		}
+		requestTimestampsByClientIP[clientIP] = append(recentTimestamps, now)
+		rateLimitStateMutex.Unlock()
+
+		next(w, r)
+	}
+}
 
 // requestMetrics holds the running counters exposed on /metrics for a single route.
 type requestMetrics struct {
@@ -75,9 +135,9 @@ func handlePrometheusMetricsRoute(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	router := http.NewServeMux()
-	router.HandleFunc("/", handleHomePageRoute)
-	router.HandleFunc("/fixed", wrapHandlerWithMetrics(&fixedRouteMetrics, handleFixedTextRoute))
-	router.HandleFunc("/time", wrapHandlerWithMetrics(&timeRouteMetrics, handleServerTimeRoute))
+	router.HandleFunc("/", enforcePerIPRateLimit(handleHomePageRoute))
+	router.HandleFunc("/fixed", enforcePerIPRateLimit(wrapHandlerWithMetrics(&fixedRouteMetrics, handleFixedTextRoute)))
+	router.HandleFunc("/time", enforcePerIPRateLimit(wrapHandlerWithMetrics(&timeRouteMetrics, handleServerTimeRoute)))
 	router.HandleFunc("/healthz", handleHealthCheckRoute)
 	router.HandleFunc("/metrics", handlePrometheusMetricsRoute)
 

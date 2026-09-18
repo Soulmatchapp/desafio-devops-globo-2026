@@ -57,11 +57,22 @@ flowchart LR
 - **Artifact Registry** guarda as imagens versionadas por commit SHA (ver `diagrams/update-flow.md`).
 - **Cloud Monitoring/Logging/Trace** dão observabilidade nativa sem operar Prometheus/Grafana em produção — métricas de requests, latência, cache hit ratio do CDN e logs estruturados de cada revisão.
 
+## Proteção contra abuso (rate limiting)
+
+Como as três peças são públicas, um robô/script batendo repetidamente nos endpoints (ex: só pra gerar 200 e inflar custo/tráfego) é uma preocupação real. Proteção em duas camadas, ativa hoje:
+
+1. **`cache-reverse-proxy` (Nginx)** — `limit_req_zone` a 5 req/s por IP real, com burst de 10 absorvido sem delay (cobre o clique normal do botão). Acima disso, `429 Too Many Requests`. No Cloud Run, o Nginx só enxerga o IP do Google Front End (o mesmo pra todo mundo), então o limite usa o primeiro IP do header `X-Forwarded-For` em vez de `$remote_addr` — senão o rate limit viraria global (um usuário lento travaria todo mundo).
+2. **`python-fixed-time-api` e `go-fixed-time-api` direto** — como continuam públicas pra debug (bypassam o proxy), cada uma tem seu próprio limitador em memória (5 req/s por IP): middleware no FastAPI, wrapper de handler no Go. Mesma lógica de extrair IP real do `X-Forwarded-For`.
+
+Testado com tráfego paralelo (`xargs -P 20`) local e em produção: tráfego normal passa liso, rajadas de robô tomam `429` consistentemente nas três.
+
+**Limitação conhecida**: o estado do rate limit é **em memória, por instância** do Cloud Run. Com autoscaling (0→3 instâncias), um robô distribuído entre instâncias diferentes escapa parcialmente do limite — proteção real e funcional para o caso comum (um cliente/robô simples), mas não substitui **Cloud Armor** num Load Balancer de verdade (rate limit compartilhado, geo-blocking, regras WAF), que seria o próximo passo — ver item abaixo.
+
 ## Pontos de melhoria identificados
 
 1. **Nginx como cache no Cloud Run (solução de hoje) é um workaround**, não o desenho final: ele mesmo é um ponto único de falha e não tem cache distribuído geograficamente como o Cloud CDN. Evolução natural é migrar pro Load Balancer + Cloud CDN assim que houver um domínio disponível.
 2. **Todos os serviços Cloud Run estão públicos (`allUsers`)**, inclusive `python-fixed-time-api` e `go-fixed-time-api` direto (usados hoje só pra debug). Melhor prática: restringir essas duas a aceitar tráfego só do `cache-reverse-proxy` (`INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER` ou IAM condicionado), deixando só o proxy público.
-3. **Sem WAF/proteção DDoS**: adicionar **Cloud Armor** — hoje só é possível na borda de um Load Balancer, outro motivo para migrar pro desenho de LB+CDN.
+3. **Rate limit é em memória/por instância** (ver seção acima) — a versão robusta é Cloud Armor num Load Balancer, com estado compartilhado entre instâncias e regras OWASP prontas, não só um contador por IP.
 4. **Certificado gerenciado do LB aponta pra domínio fictício** (`desafio-devops.example.com`) — precisa de um domínio real + Cloud DNS gerenciado via Terraform.
 5. **Imagens usam a tag `:latest`**: funciona pra demo, mas não é reprodutível/rastreável. O pipeline de CI/CD (`diagrams/update-flow.md`) já tagga por SHA do commit — adotar isso também no deploy manual.
 6. **Cache "tudo ou nada" por rota** (`FORCE_CACHE_ALL` no Cloud CDN / `proxy_cache_valid` no Nginx): hoje cacheia `/fixed` e `/time` igual. Uma evolução seria diferenciar cache por rota via `Cache-Control` vindo da própria aplicação.

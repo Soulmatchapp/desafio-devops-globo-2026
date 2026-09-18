@@ -23,6 +23,10 @@ Isso foi provisionado com o mesmo Terraform de `terraform/` (Artifact Registry +
 
 > O símbolo usado é um globo genérico (🌐), não a marca registrada da Globo — evitei reproduzir a logo oficial numa página pública.
 
+## Proteção contra abuso
+
+As três peças têm **rate limiting por IP** (5 req/s, com burst curto pra não travar o uso normal do botão): no `cache-reverse-proxy` via `limit_req` do Nginx, e diretamente em cada app (middleware no FastAPI, wrapper de handler no Go), já que `python-fixed-time-api` e `go-fixed-time-api` também são públicas. Acima do limite, a resposta é `429 Too Many Requests`. Testado com carga paralela local e em produção. É um limite em memória por instância do Cloud Run — suficiente pra barrar um robô simples clicando/batendo repetido, mas a versão "de verdade" (compartilhada entre instâncias, com regras WAF) é Cloud Armor num Load Balancer — ver `diagrams/architecture.md`.
+
 ## Componentes
 
 | Componente | O que é |
