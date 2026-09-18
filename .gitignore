@@ -1,0 +1,32 @@
+### Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+!example.tfvars
+
+### Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+### Go
+apps/go-service/go-service
+*.exe
+*.test
+
+### Docker / infra runtime
+nginx/cache/
+observability/prometheus/data/
+observability/grafana/data/
+
+### OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

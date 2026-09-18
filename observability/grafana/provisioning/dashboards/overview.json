@@ -1,0 +1,59 @@
+{
+  "title": "Desafio DevOps - Overview",
+  "uid": "desafio-devops-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Requests per second by route",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "sum(rate(app_requests_total[1m])) by (route, job)",
+          "legendFormat": "{{job}} {{route}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "py-service latency (avg, seconds)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "rate(app_request_latency_seconds_sum{job=\"py-service\"}[1m]) / rate(app_request_latency_seconds_count{job=\"py-service\"}[1m])",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "go-service latency (avg, microseconds)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "rate(app_request_latency_microseconds_sum{job=\"go-service\"}[1m]) / rate(app_requests_total{job=\"go-service\"}[1m])",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Total requests (counter)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "app_requests_total",
+          "legendFormat": "{{job}} {{route}}"
+        }
+      ]
+    }
+  ]
+}
