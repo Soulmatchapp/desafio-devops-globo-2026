@@ -76,7 +76,7 @@ Cassio Henrique Silva
 ## Pontos de melhoria identificados
 
 - Cloud Run está público hoje (`allUsers`) — trocar por ingress interno + Cloud Armor/IAP na borda
-- Sem WAF — adicionar Cloud Armor nos backend services
+- Rate limit hoje é em memória por instância — a versão com estado compartilhado é Cloud Armor num Load Balancer
 - `terraform apply` roda direto na `main` sem aprovação — adicionar `plan` obrigatório em PR + aprovação humana
 - Terraform state está local — mover para backend remoto (GCS) com locking
 - Sem separação de ambientes (dev/staging/prod) — usar workspaces ou diretórios por ambiente
@@ -93,6 +93,17 @@ Cassio Henrique Silva
 - Rotas de API continuam em `/python-api/*` e `/go-api/*` (via proxy, com cache) ou `/fixed` e `/time` (direto em cada app)
 - Provisionado via Terraform, projeto GCP dedicado `desafio-devops-globo-2026`
 - Sem Load Balancer/domínio próprio hoje — o proxy de cache roda ele mesmo como um terceiro serviço no Cloud Run, preservando o TTL
+
+---
+
+## Proteção contra abuso (rate limiting)
+
+- Preocupação real: um robô/script batendo repetido só pra gerar 200 e inflar tráfego/custo
+- **cache-reverse-proxy**: `limit_req` do Nginx, 5 req/s por IP real, burst de 10 absorvido sem travar o uso normal
+- **As duas apps direto** (bypassam o proxy): mesmo limite, implementado em memória — middleware no FastAPI, wrapper de handler no Go
+- Acima do limite: `429 Too Many Requests`
+- Testado com carga paralela (`xargs -P 20`), local e em produção: tráfego normal passa liso, rajada toma 429 nas três
+- Limitação conhecida: limite em memória por instância do Cloud Run — a versão robusta é Cloud Armor num Load Balancer (documentado como próximo passo)
 
 ---
 
